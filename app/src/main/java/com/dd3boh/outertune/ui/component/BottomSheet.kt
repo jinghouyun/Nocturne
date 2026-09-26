@@ -102,17 +102,22 @@ fun BottomSheet(
 
                 detectVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
-                        velocityTracker.addPointerInputChange(change)
-                        state.dispatchRawDelta(dragAmount)
+                        // Do NOT allow swipe-up from the collapsed mini-player to expand the sheet.
+                        // Opening the player is only via tapping the mini player. Swipe-down from
+                        // the expanded sheet still collapses it.
+                        if (!(state.isCollapsed && dragAmount < 0f)) {
+                            velocityTracker.addPointerInputChange(change)
+                            state.dispatchRawDelta(dragAmount)
+                        }
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
-                        state.snapTo(state.collapsedBound)
+                        if (!state.isCollapsed) state.snapTo(state.collapsedBound)
                     },
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
                         velocityTracker.resetTracking()
-                        state.performFling(velocity, onDismiss)
+                        if (!state.isCollapsed) state.performFling(velocity, onDismiss)
                     }
                 )
             }

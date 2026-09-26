@@ -181,22 +181,6 @@ fun MiniPlayer(
                 )
             }
         }
-
-        var sliderPos by remember { mutableStateOf<Float?>(null) }
-        androidx.compose.material3.Slider(
-            value = (sliderPos ?: position.toFloat()),
-            valueRange = 0f..(if (duration <= 0) 1f else duration.toFloat()),
-            onValueChange = { sliderPos = it },
-            onValueChangeFinished = {
-                sliderPos?.let { playerConnection.player.seekTo(it.toLong()) }
-                sliderPos = null
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 8.dp),
-        )
     }
 }
 
