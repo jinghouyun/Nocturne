@@ -238,24 +238,38 @@ class RemoteMusicRepository @Inject constructor(
 
     suspend fun getLyric(mediaId: String): RemoteLyric? = withContext(Dispatchers.IO) {
         ensureJs()
-        val parsed = parseMediaId(mediaId) ?: return@withContext null
+        val parsed = parseMediaId(mediaId) ?: run {
+            Log.w("LyricDebug", "getLyric: cannot parse mediaId=$mediaId")
+            return@withContext null
+        }
         val (sourceId, sourceSongId) = parsed
+        Log.d("LyricDebug", "getLyric mediaId=$mediaId source=$sourceId songId=$sourceSongId jsSupportsLyric=${jsManager.supports(sourceId, "lyric")}")
 
         // 1) Active JS enhancement script first.
         if (sourceId in builtinSourceIds && jsManager.supports(sourceId, "lyric")) {
             val jsLyric = runCatching {
                 jsManager.tryLyric(sourceId, lxMusicInfo(mediaId, sourceId, sourceSongId))
-            }.onFailure { Log.e("RemoteMusicRepo", "js lyric failed", it) }.getOrNull()
+            }.onFailure { Log.e("LyricDebug", "js lyric failed", it) }.getOrNull()
+            Log.d("LyricDebug", "getLyric: JS result=${if (jsLyric == null) "null (falling back)" else "OK len=${jsLyric.lyric?.length}"}")
             if (jsLyric != null) return@withContext applyS2T(jsLyric)
         }
 
-        val source = sourceById(sourceId) ?: return@withContext null
+        val source = sourceById(sourceId) ?: run {
+            Log.w("LyricDebug", "getLyric: no built-in source for $sourceId")
+            return@withContext null
+        }
         val song = RemoteSong(
             id = mediaId, source = sourceId, sourceSongId = sourceSongId,
             title = "", artists = emptyList(), albumName = null,
             durationSec = 0, thumbnailUrl = null,
         )
-        val lyric = runCatching { source.getLyric(song) }.getOrNull() ?: return@withContext null
+        val lyric = runCatching { source.getLyric(song) }
+            .onFailure { Log.e("LyricDebug", "getLyric built-in $sourceId failed", it) }.getOrNull()
+            ?: run {
+                Log.w("LyricDebug", "getLyric built-in $sourceId returned null")
+                return@withContext null
+            }
+        Log.d("LyricDebug", "getLyric built-in $sourceId OK len=${lyric.lyric?.length}, preview=${lyric.lyric?.take(120)}")
         applyS2T(lyric)
     }
 

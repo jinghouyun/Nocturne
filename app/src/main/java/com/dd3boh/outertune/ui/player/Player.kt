@@ -804,6 +804,7 @@ fun ControlsContent(
                     iconColor.copy(alpha = 0.6f) else iconColor,
                 enabled = playerConnection.player.currentMediaItem != null,
                 onClick = {
+                    android.util.Log.d("PlayerBtn", "repeat clicked, mode=$repeatMode")
                     playerConnection.player.repeatMode = when (repeatMode) {
                         androidx.media3.common.Player.REPEAT_MODE_OFF -> androidx.media3.common.Player.REPEAT_MODE_ALL
                         androidx.media3.common.Player.REPEAT_MODE_ALL -> androidx.media3.common.Player.REPEAT_MODE_ONE
@@ -817,7 +818,10 @@ fun ControlsContent(
                 icon = Icons.Rounded.Schedule,
                 modifier = Modifier.size(28.dp),
                 color = iconColor.copy(alpha = 0.8f),
-                onClick = { showSleepTimerDialog = true }
+                onClick = {
+                    android.util.Log.d("PlayerBtn", "sleep timer clicked")
+                    showSleepTimerDialog = true
+                }
             )
 
             // 3) Middle: cover <-> lyrics toggle
@@ -826,6 +830,7 @@ fun ControlsContent(
                 modifier = Modifier.size(28.dp),
                 color = iconColor,
                 onClick = {
+                    android.util.Log.d("PlayerBtn", "lyrics toggle clicked, showLyrics=$showLyrics")
                     showLyrics = !showLyrics
                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                 }
@@ -924,6 +929,7 @@ fun ControlsContent(
                 modifier = Modifier.size(28.dp),
                 color = iconColor.copy(alpha = 0.8f),
                 onClick = {
+                    android.util.Log.d("PlayerBtn", "queue clicked")
                     queueSheetState.expandSoft()
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                 }

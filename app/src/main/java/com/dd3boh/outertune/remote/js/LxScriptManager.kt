@@ -89,6 +89,7 @@ class LxScriptManager(private val context: Context) {
         if (!supports(source, "lyric")) return null
         return runCatching {
             val r = eng.callAction(source, "lyric", mapOf("musicInfo" to musicInfo))
+            Log.d("LyricDebug", "[$source] raw JS result type=${r?.javaClass?.name}, len=${r?.toString()?.length}, preview=${r?.toString()?.take(200)}")
             // Result may be a plain LRC string, or an object {lyric, tlyric, rlyric}.
             val (lyricRaw, tRaw, rRaw) = when (r) {
                 is Map<*, *> -> Triple(
@@ -97,28 +98,27 @@ class LxScriptManager(private val context: Context) {
                     r["rlyric"]?.toString(),
                 )
                 is String -> Triple(r, null, null)
-                else -> return@runCatching null
+                else -> {
+                    Log.w("LyricDebug", "[$source] unexpected lyric result type=${r?.javaClass?.name}")
+                    return@runCatching null
+                }
             }
 
-            // Decode base64-wrapped fields, then require the main lyric to actually contain
-            // [mm:ss] timestamps. If it doesn't (e.g. an encrypted binary payload), bail out so
-            // the repository falls back to the built-in source lyric instead of feeding base64
-            // gibberish to the LRC parser (which would render zero lines -> no scroll/highlight).
-            val lyric = decodeLrcField(lyricRaw)
+            val lyric = decodeLrcField(lyricRaw, "lyric")
             if (lyric.isNullOrBlank() || !looksLikeLrc(lyric)) {
-                Log.w("LxScript", "lyric for $source has no [mm:ss] timestamps after decode, falling back")
+                Log.w("LyricDebug", "[$source] lyric has no [mm:ss] timestamps after decode, falling back to built-in")
                 return@runCatching null
             }
-            val tlyric = decodeLrcField(tRaw)?.takeIf { looksLikeLrc(it) || it.isNotBlank() }
-            val rlyric = decodeLrcField(rRaw)?.takeIf { looksLikeLrc(it) || it.isNotBlank() }
+            val tlyric = decodeLrcField(tRaw, "tlyric")
+            val rlyric = decodeLrcField(rRaw, "rlyric")
 
-            Log.i("LxScript", "lyric for $source decoded OK, ${lyric.lines().size} lines")
+            Log.i("LyricDebug", "[$source] lyric decoded OK, ${lyric.lines().size} lines, preview=${lyric.take(120)}")
             RemoteLyric(
                 lyric = lyric.takeIf { it.length <= 51200 },
                 translated = tlyric?.takeIf { it.isNotBlank() && it.length <= 5120 },
                 roman = rlyric?.takeIf { it.isNotBlank() && it.length <= 5120 },
             )
-        }.onFailure { Log.e("LxScript", "lyric failed for $source", it) }.getOrNull()
+        }.onFailure { Log.e("LyricDebug", "[$source] lyric failed", it) }.getOrNull()
     }
 
     /** True if [s] contains a [mm:ss] / [mm:ss.xx] timestamp tag. */
@@ -126,33 +126,54 @@ class LxScriptManager(private val context: Context) {
         Regex("""\[\d{1,2}:\d{2}([.:]\d{1,3})?]""").containsMatchIn(s)
 
     /**
-     * If [raw] is plain LRC text, return it. If it looks like base64, decode it and return the
-     * decoded bytes only when they are printable LRC text; otherwise return null (so the caller
-     * knows the field was not usable).
+     * Decode one lyric field. Accept plain LRC as-is. If it looks like base64, decode and then
+     * try (in order) plain UTF-8, gzip, and zlib inflate. Return only if the final text looks
+     * like LRC (has [mm:ss] tags); otherwise null (so caller falls back).
      */
-    private fun decodeLrcField(raw: String?): String? {
+    private fun decodeLrcField(raw: String?, tag: String): String? {
         if (raw.isNullOrBlank()) return null
         val s = raw.trim()
-        if (looksLikeLrc(s)) return s
+        if (looksLikeLrc(s)) {
+            Log.d("LyricDebug", "field $tag: plain LRC, len=${s.length}")
+            return s
+        }
         // Heuristic: pure base64, no whitespace, length multiple of 4, reasonably long.
         if (s.length >= 16 && s.length % 4 == 0 &&
-            Regex("""^[A-Za-z0-9+/]+={0,2}$""").matches(s)
+            Regex("""^[A-Za-z0-9+/=\s]+$""").matches(s)
         ) {
             runCatching {
                 val bytes = android.util.Base64.decode(s, android.util.Base64.DEFAULT)
-                val decoded = String(bytes, Charsets.UTF_8)
-                // Accept only if it decodes to printable LRC-ish text (no NUL / high ratio of
-                // non-printable bytes => encrypted binary, reject).
-                val printableRatio = decoded.count { it == '\n' || it == '\r' || it == '\t' || it.code in 0x20..0x7E || it.code >= 0xA0 }
-                    .toDouble() / decoded.length.coerceAtLeast(1)
-                if (printableRatio > 0.9 && looksLikeLrc(decoded)) {
-                    return decoded
-                }
-                Log.w("LxScript", "base64 lyric decoded but not LRC (printable=$printableRatio), rejecting")
-            }
+                Log.d("LyricDebug", "field $tag: base64 decoded -> ${bytes.size} bytes, head=${bytes.take(8).joinToString(" ") { "%02x".format(it) }}")
+                // 1) direct UTF-8
+                String(bytes, Charsets.UTF_8).let { if (looksLikeLrc(it)) { Log.d("LyricDebug","field $tag: direct UTF8 OK"); return it } }
+                // 2) gzip
+                runCatching {
+                    java.util.zip.GZIPInputStream(bytes.inputStream()).use { it.readBytes().toString(Charsets.UTF_8) }
+                }.getOrNull()?.let { if (looksLikeLrc(it)) { Log.d("LyricDebug","field $tag: gzip OK"); return it } }
+                // 3) zlib inflate
+                runCatching { inflateZlib(bytes) }.getOrNull()?.let { if (looksLikeLrc(it)) { Log.d("LyricDebug","field $tag: zlib OK"); return it } }
+                Log.w("LyricDebug", "field $tag: base64 decoded but no LRC timestamps after UTF8/gzip/zlib, rejecting")
+            }.onFailure { Log.w("LyricDebug", "field $tag: base64 decode failed", it) }
         }
-        // Not base64 / not LRC shaped: treat as unusable for timed lyrics.
         return null
+    }
+
+    /** zlib-deflate [bytes] to a UTF-8 string. */
+    private fun inflateZlib(bytes: ByteArray): String {
+        val inflater = java.util.zip.Inflater()
+        inflater.setInput(bytes)
+        val out = java.io.ByteArrayOutputStream(bytes.size * 4)
+        val buf = ByteArray(8192)
+        try {
+            while (!inflater.finished()) {
+                val n = inflater.inflate(buf)
+                if (n == 0) break
+                out.write(buf, 0, n)
+            }
+        } finally {
+            inflater.end()
+        }
+        return out.toString(Charsets.UTF_8.name())
     }
 
     fun tryPic(source: String, musicInfo: Map<String, Any?>): String? {

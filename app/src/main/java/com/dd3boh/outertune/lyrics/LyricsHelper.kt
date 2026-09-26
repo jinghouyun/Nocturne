@@ -75,10 +75,15 @@ class LyricsHelper @Inject constructor(
         // No database / local lyric available. If this is an online song (mediaId starts with
         // "NM"), fetch lyrics from the backing source, merge translation/romanization, cache to DB.
         if (mediaMetadata.id.startsWith("NM")) {
+            Log.d("LyricDebug", "getLyrics: remote branch for ${mediaMetadata.id}")
             val remote = fetchAndCacheRemoteLyrics(mediaMetadata.id)
+            Log.d("LyricDebug", "getLyrics: remote result len=${remote?.length}, preview=${remote?.take(120)}")
             if (!remote.isNullOrBlank()) {
                 cache.put(mediaMetadata.id, listOf(LyricsResult("remote", remote)))
-                return parseLrc(remote, trim, multiline)
+                val parsed = parseLrc(remote, trim, multiline)
+                Log.d("LyricDebug", "getLyrics: parseLrc produced lines=" +
+                    (parsed as? SemanticLyrics.SyncedLyrics)?.text?.size)
+                return parsed
             }
         }
 
@@ -93,8 +98,19 @@ class LyricsHelper @Inject constructor(
         if (!inFlight.add(mediaId)) return null // already being fetched elsewhere
         return try {
             val remoteLyric = runCatching { remoteRepository.getLyric(mediaId) }.getOrNull()
-                ?: return null
-            val base = remoteLyric.lyric ?: return null
+                ?: run {
+                    Log.w("LyricDebug", "fetchAndCache: remoteRepository.getLyric($mediaId) = null")
+                    return null
+                }
+            val base = remoteLyric.lyric ?: run {
+                Log.w("LyricDebug", "fetchAndCache: remote lyric.lyric is null")
+                return null
+            }
+            // Never persist / display a payload without [mm:ss] timestamps (e.g. base64 garbage).
+            if (!Regex("""\[\d{1,2}:\d{2}([.:]\d{1,3})?]""").containsMatchIn(base)) {
+                Log.w("LyricDebug", "fetchAndCache: lyric has no timestamps, refusing to cache. preview=${base.take(120)}")
+                return null
+            }
 
             val showTrans = context.dataStore.get(ShowTranslationKey, true)
             val showRoman = context.dataStore.get(ShowRomanizationKey, false)
@@ -107,11 +123,11 @@ class LyricsHelper @Inject constructor(
 
             runCatching {
                 database.query { upsert(LyricsEntity(id = mediaId, lyrics = merged)) }
-            }.onFailure { Log.w(TAG, "Failed to cache remote lyric for $mediaId", it) }
+            }.onFailure { Log.w("LyricDebug", "Failed to cache remote lyric for $mediaId", it) }
 
             merged
         } catch (e: Exception) {
-            Log.w(TAG, "Remote lyric fetch failed for $mediaId", e)
+            Log.w("LyricDebug", "Remote lyric fetch failed for $mediaId", e)
             null
         } finally {
             inFlight.remove(mediaId)

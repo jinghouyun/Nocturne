@@ -99,8 +99,10 @@ data class MediaMetadata(
         // Remote cover: hand the URL string to Coil's network fetcher. Wrapping it in
         // LocalArtworkPath would route it through the local-file-only fetcher and fail.
         if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+            android.util.Log.d("CoverDebug", "getThumbnailModel http url=$url for title=$title")
             return url
         }
+        android.util.Log.d("CoverDebug", "getThumbnailModel local/none url=$url localPath=$localPath title=$title")
         return LocalArtworkPath(url ?: localPath, sizeX, sizeY)
     }
 }
