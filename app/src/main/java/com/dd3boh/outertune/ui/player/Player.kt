@@ -791,7 +791,8 @@ fun ControlsContent(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
         ) {
             // 1) Repeat mode toggle: OFF -> ALL -> ONE
             ResizableIconButton(
@@ -799,7 +800,7 @@ fun ControlsContent(
                     androidx.media3.common.Player.REPEAT_MODE_ONE -> Icons.Rounded.RepeatOneOn
                     else -> Icons.Rounded.Repeat
                 },
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(40.dp),
                 color = if (repeatMode == androidx.media3.common.Player.REPEAT_MODE_OFF)
                     iconColor.copy(alpha = 0.6f) else iconColor,
                 enabled = playerConnection.player.currentMediaItem != null,
@@ -816,7 +817,7 @@ fun ControlsContent(
 
             ResizableIconButton(
                 icon = Icons.Rounded.Schedule,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(40.dp),
                 color = iconColor.copy(alpha = 0.8f),
                 onClick = {
                     android.util.Log.d("PlayerBtn", "sleep timer clicked")
@@ -827,7 +828,7 @@ fun ControlsContent(
             // 3) Middle: cover <-> lyrics toggle
             ResizableIconButton(
                 icon = if (showLyrics) Icons.Rounded.MusicNote else Icons.Rounded.Lyrics,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(40.dp),
                 color = iconColor,
                 onClick = {
                     android.util.Log.d("PlayerBtn", "lyrics toggle clicked, showLyrics=$showLyrics")
@@ -855,7 +856,7 @@ fun ControlsContent(
                 if (sepRecord != null && sepRecord.status == "done") {
                     ResizableIconButton(
                         icon = Icons.Rounded.Mic,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(40.dp),
                         color = if (currentTrack == "original") iconColor.copy(alpha = 0.6f) else iconColor,
                         onClick = { showTrackDialog = true }
                     )
@@ -926,7 +927,7 @@ fun ControlsContent(
 
             ResizableIconButton(
                 icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(40.dp),
                 color = iconColor.copy(alpha = 0.8f),
                 onClick = {
                     android.util.Log.d("PlayerBtn", "queue clicked")
@@ -937,7 +938,7 @@ fun ControlsContent(
 
             ResizableIconButton(
                 icon = Icons.Rounded.MoreVert,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(40.dp),
                 color = iconColor.copy(alpha = 0.8f),
                 onClick = {
                     menuState.show {

@@ -51,7 +51,9 @@ object KgSource : RemoteMusicSource {
                         artists = singers,
                         albumName = item.optString("AlbumName").ifEmpty { null },
                         durationSec = item.optInt("Duration", 0),
-                        thumbnailUrl = null,
+                        thumbnailUrl = item.optString("Pic")
+                            .ifEmpty { item.optString("Albumpic") }
+                            .ifEmpty { null },
                         extra = mapOf("hash" to hash, "interval" to item.optInt("Duration", 0).toString())
                     )
                 )

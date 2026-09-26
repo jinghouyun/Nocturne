@@ -47,7 +47,10 @@ object KwSource : RemoteMusicSource {
                         artists = listOf(artist),
                         albumName = item.optString("ALBUM").ifEmpty { null },
                         durationSec = item.optInt("DURATION", 0),
-                        thumbnailUrl = null,
+                        thumbnailUrl = item.optString("WEBALBAMPIC")
+                            .ifEmpty { item.optString("ALBAMPIC") }
+                            .ifEmpty { item.optString("ALBUMPID") }
+                            .ifEmpty { null },
                         extra = emptyMap()
                     )
                 )
