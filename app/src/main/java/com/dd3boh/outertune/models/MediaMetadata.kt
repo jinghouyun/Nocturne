@@ -95,7 +95,13 @@ data class MediaMetadata(
     fun getDateModifiedLong(): Long? = dateModified?.toEpochSecond(ZoneOffset.UTC)
 
     fun getThumbnailModel(sizeX: Int = -1, sizeY: Int = -1): Any? {
-        return LocalArtworkPath(thumbnailUrl ?: localPath, sizeX, sizeY)
+        val url = thumbnailUrl
+        // Remote cover: hand the URL string to Coil's network fetcher. Wrapping it in
+        // LocalArtworkPath would route it through the local-file-only fetcher and fail.
+        if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+            return url
+        }
+        return LocalArtworkPath(url ?: localPath, sizeX, sizeY)
     }
 }
 

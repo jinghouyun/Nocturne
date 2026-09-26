@@ -85,7 +85,9 @@ class RemoteSearchViewModel @Inject constructor(
         val alias = context.dataStore.get(SourceNameDisplayKey, "original") == "alias"
         val built = RemoteSourceTab.builtIn(alias)
         val customs = runCatching {
-            customStore.getEnabled().map { RemoteSourceTab("custom_${it.id}", it.name) }
+            customStore.getEnabled()
+                .filter { !it.isJs } // JS scripts are enhancement-only (no search), never become tabs
+                .map { RemoteSourceTab("custom_${it.id}", it.name) }
         }.getOrDefault(emptyList())
         return built + customs
     }

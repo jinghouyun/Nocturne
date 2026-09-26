@@ -73,6 +73,10 @@ import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOneOn
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -165,7 +169,9 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.max
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -668,6 +674,12 @@ fun ControlsContent(
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
 
+    // Cover<->lyrics toggle (middle secondary button).
+    var showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
+    // Sleep-timer dialog + active timer.
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    val sleepScope = rememberCoroutineScope()
+
     val playbackState by playerConnection.playbackState.collectAsState()
     var duration by rememberSaveable(playbackState) {
         mutableLongStateOf(playerConnection.player.duration)
@@ -693,26 +705,6 @@ fun ControlsContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Progress slider
-        Slider(
-            value = (sliderPosition ?: position).toFloat(),
-            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-            onValueChange = { sliderPosition = it.toLong() },
-            onValueChangeFinished = {
-                sliderPosition?.let {
-                    playerConnection.player.seekTo(it)
-                    position = it
-                }
-                sliderPosition = null
-                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-            },
-            thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-            track = { sliderState ->
-                PlayerSliderTrack(sliderState = sliderState, colors = SliderDefaults.colors())
-            },
-            modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
-        )
-
         // Times
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -801,13 +793,22 @@ fun ControlsContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
         ) {
+            // 1) Repeat mode toggle: OFF -> ALL -> ONE
             ResizableIconButton(
-                icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                icon = when (repeatMode) {
+                    androidx.media3.common.Player.REPEAT_MODE_ONE -> Icons.Rounded.RepeatOneOn
+                    else -> Icons.Rounded.Repeat
+                },
                 modifier = Modifier.size(28.dp),
-                color = if (shuffleModeEnabled) iconColor else iconColor.copy(alpha = 0.6f),
+                color = if (repeatMode == androidx.media3.common.Player.REPEAT_MODE_OFF)
+                    iconColor.copy(alpha = 0.6f) else iconColor,
                 enabled = playerConnection.player.currentMediaItem != null,
                 onClick = {
-                    playerConnection.triggerShuffle()
+                    playerConnection.player.repeatMode = when (repeatMode) {
+                        androidx.media3.common.Player.REPEAT_MODE_OFF -> androidx.media3.common.Player.REPEAT_MODE_ALL
+                        androidx.media3.common.Player.REPEAT_MODE_ALL -> androidx.media3.common.Player.REPEAT_MODE_ONE
+                        else -> androidx.media3.common.Player.REPEAT_MODE_OFF
+                    }
                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                 }
             )
@@ -816,33 +817,17 @@ fun ControlsContent(
                 icon = Icons.Rounded.Schedule,
                 modifier = Modifier.size(28.dp),
                 color = iconColor.copy(alpha = 0.8f),
-                onClick = {
-                    menuState.show {
-                        PlayerMenu(
-                            mediaMetadata = mediaMetadata,
-                            navController = navController,
-                            playerBottomSheetState = playerSheetState,
-                            onDismiss = { menuState.dismiss() }
-                        )
-                    }
-                }
+                onClick = { showSleepTimerDialog = true }
             )
 
+            // 3) Middle: cover <-> lyrics toggle
             ResizableIconButton(
-                icon = Icons.Rounded.GraphicEq,
+                icon = if (showLyrics) Icons.Rounded.MusicNote else Icons.Rounded.Lyrics,
                 modifier = Modifier.size(28.dp),
-                color = iconColor.copy(alpha = 0.8f),
+                color = iconColor,
                 onClick = {
-                    val intent = android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL.let {
-                        android.content.Intent(it).apply {
-                            putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, playerConnection.player.audioSessionId)
-                            putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                            putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-                        }
-                    }
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: Exception) {}
+                    showLyrics = !showLyrics
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                 }
             )
 
@@ -960,6 +945,37 @@ fun ControlsContent(
                 }
             )
         }
+    }
+
+    // Sleep timer dialog
+    if (showSleepTimerDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSleepTimerDialog = false },
+            title = { Text("定时关闭") },
+            text = {
+                Column {
+                    listOf(0 to "关闭", 15 to "15 分钟", 30 to "30 分钟", 45 to "45 分钟", 60 to "60 分钟").forEach { (mins, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showSleepTimerDialog = false
+                                    if (mins > 0) {
+                                        sleepScope.launch {
+                                            kotlinx.coroutines.delay(mins * 60_000L)
+                                            playerConnection.player.pause()
+                                        }
+                                    }
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp)
+                        ) { Text(label) }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showSleepTimerDialog = false }) { Text("取消") }
+            }
+        )
     }
 }
 

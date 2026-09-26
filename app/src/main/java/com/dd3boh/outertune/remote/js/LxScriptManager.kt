@@ -89,15 +89,70 @@ class LxScriptManager(private val context: Context) {
         if (!supports(source, "lyric")) return null
         return runCatching {
             val r = eng.callAction(source, "lyric", mapOf("musicInfo" to musicInfo))
-            val m = r as? Map<String, Any?> ?: return@runCatching null
-            val lyric = m["lyric"]?.toString()?.takeIf { it.isNotBlank() && it.length <= 51200 }
-                ?: return@runCatching null
+            // Result may be a plain LRC string, or an object {lyric, tlyric, rlyric}.
+            val (lyricRaw, tRaw, rRaw) = when (r) {
+                is Map<*, *> -> Triple(
+                    r["lyric"]?.toString(),
+                    r["tlyric"]?.toString(),
+                    r["rlyric"]?.toString(),
+                )
+                is String -> Triple(r, null, null)
+                else -> return@runCatching null
+            }
+
+            // Decode base64-wrapped fields, then require the main lyric to actually contain
+            // [mm:ss] timestamps. If it doesn't (e.g. an encrypted binary payload), bail out so
+            // the repository falls back to the built-in source lyric instead of feeding base64
+            // gibberish to the LRC parser (which would render zero lines -> no scroll/highlight).
+            val lyric = decodeLrcField(lyricRaw)
+            if (lyric.isNullOrBlank() || !looksLikeLrc(lyric)) {
+                Log.w("LxScript", "lyric for $source has no [mm:ss] timestamps after decode, falling back")
+                return@runCatching null
+            }
+            val tlyric = decodeLrcField(tRaw)?.takeIf { looksLikeLrc(it) || it.isNotBlank() }
+            val rlyric = decodeLrcField(rRaw)?.takeIf { looksLikeLrc(it) || it.isNotBlank() }
+
+            Log.i("LxScript", "lyric for $source decoded OK, ${lyric.lines().size} lines")
             RemoteLyric(
-                lyric = lyric,
-                translated = m["tlyric"]?.toString()?.takeIf { it.isNotBlank() && it.length <= 5120 },
-                roman = m["rlyric"]?.toString()?.takeIf { it.isNotBlank() && it.length <= 5120 },
+                lyric = lyric.takeIf { it.length <= 51200 },
+                translated = tlyric?.takeIf { it.isNotBlank() && it.length <= 5120 },
+                roman = rlyric?.takeIf { it.isNotBlank() && it.length <= 5120 },
             )
         }.onFailure { Log.e("LxScript", "lyric failed for $source", it) }.getOrNull()
+    }
+
+    /** True if [s] contains a [mm:ss] / [mm:ss.xx] timestamp tag. */
+    private fun looksLikeLrc(s: String): Boolean =
+        Regex("""\[\d{1,2}:\d{2}([.:]\d{1,3})?]""").containsMatchIn(s)
+
+    /**
+     * If [raw] is plain LRC text, return it. If it looks like base64, decode it and return the
+     * decoded bytes only when they are printable LRC text; otherwise return null (so the caller
+     * knows the field was not usable).
+     */
+    private fun decodeLrcField(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val s = raw.trim()
+        if (looksLikeLrc(s)) return s
+        // Heuristic: pure base64, no whitespace, length multiple of 4, reasonably long.
+        if (s.length >= 16 && s.length % 4 == 0 &&
+            Regex("""^[A-Za-z0-9+/]+={0,2}$""").matches(s)
+        ) {
+            runCatching {
+                val bytes = android.util.Base64.decode(s, android.util.Base64.DEFAULT)
+                val decoded = String(bytes, Charsets.UTF_8)
+                // Accept only if it decodes to printable LRC-ish text (no NUL / high ratio of
+                // non-printable bytes => encrypted binary, reject).
+                val printableRatio = decoded.count { it == '\n' || it == '\r' || it == '\t' || it.code in 0x20..0x7E || it.code >= 0xA0 }
+                    .toDouble() / decoded.length.coerceAtLeast(1)
+                if (printableRatio > 0.9 && looksLikeLrc(decoded)) {
+                    return decoded
+                }
+                Log.w("LxScript", "base64 lyric decoded but not LRC (printable=$printableRatio), rejecting")
+            }
+        }
+        // Not base64 / not LRC shaped: treat as unusable for timed lyrics.
+        return null
     }
 
     fun tryPic(source: String, musicInfo: Map<String, Any?>): String? {

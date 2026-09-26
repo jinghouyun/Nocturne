@@ -280,6 +280,7 @@ fun Lyrics(
             contentPadding = WindowInsets.systemBars
                 .only(WindowInsetsSides.Top)
                 .add(WindowInsets(top = maxHeight / 2, bottom = maxHeight / 2))
+                .add(WindowInsets(bottom = 120.dp)) // keep last line clear of bottom controls
                 .asPaddingValues(),
             modifier = Modifier
                 .fadingEdge(vertical = 64.dp)
