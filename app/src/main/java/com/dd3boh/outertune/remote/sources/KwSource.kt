@@ -27,36 +27,73 @@ object KwSource : RemoteMusicSource {
             "&rformat=json&vermerge=1&mobi=1&issubtitle=1"
         return runCatching {
             val resp = RemoteHttp.get(url)
-            val json = JSONObject(resp)
-            val total = json.optString("TOTAL")
-            if (total == "0" || json.optString("SHOW") == "0") return@runCatching emptyList()
+            // The kuwo "json" endpoint actually returns a single-quoted JS object literal,
+            // which org.json.JSONObject rejects. Convert single quotes to double quotes.
+            val jsonText = unquoteJsObject(resp)
+            val json = JSONObject(jsonText)
+            if (json.optString("SHOW") == "0") return@runCatching emptyList()
             val list = json.optJSONArray("abslist") ?: return@runCatching emptyList()
             val out = ArrayList<RemoteSong>()
             for (i in 0 until list.length()) {
                 val item = list.getJSONObject(i)
-                val rid = item.optString("MUSICRID")
-                val mid = rid.removePrefix("MUSIC_")
+                val mid = item.optString("DC_TARGETID")
+                    .ifEmpty { item.optString("MUSICRID").removePrefix("MUSIC_") }
                 if (mid.isEmpty()) continue
                 val artist = item.optString("ARTIST").replace("&", "、")
+                val cover = item.optString("web_albumpic_short")
+                    .ifEmpty { item.optString("WEBALBAMPIC") }
+                    .ifEmpty { item.optString("ALBAMPIC") }
                 out.add(
                     RemoteSong(
                         id = "NMkw$mid",
                         source = sourceId,
                         sourceSongId = mid,
-                        title = item.optString("SONGNAME"),
+                        title = item.optString("NAME").ifEmpty { item.optString("SONGNAME") },
                         artists = listOf(artist),
                         albumName = item.optString("ALBUM").ifEmpty { null },
                         durationSec = item.optInt("DURATION", 0),
-                        thumbnailUrl = item.optString("WEBALBAMPIC")
-                            .ifEmpty { item.optString("ALBAMPIC") }
-                            .ifEmpty { item.optString("ALBUMPID") }
-                            .ifEmpty { null },
+                        thumbnailUrl = coverToFullUrl(cover),
                         extra = emptyMap()
                     )
                 )
             }
             out
         }.getOrDefault(emptyList())
+    }
+
+    /** Convert a kuwo relative album-cover path (e.g. "120/s4s18/85/xxx.jpg") to a full URL. */
+    private fun coverToFullUrl(path: String): String? {
+        if (path.isEmpty()) return null
+        if (path.startsWith("http")) return path
+        return "https://img1.kuwo.cn/star/albumcover/$path"
+    }
+
+    /**
+     * The kuwo search endpoint returns a JS object literal with single-quoted keys/strings.
+     * Convert single quotes to double quotes. We only quote structural single quotes: keys
+     * and string boundaries. A naive replace is acceptable here because song/artist values are
+     * short and rarely contain apostrophes; keys are always bare identifiers.
+     */
+    private fun unquoteJsObject(raw: String): String {
+        // Replace ' that immediately follows { , [ or : (with optional whitespace) or precedes
+        // } , ] : (with optional whitespace) with ". This avoids converting apostrophes inside
+        // values.
+        val sb = StringBuilder(raw.length)
+        for (i in raw.indices) {
+            val c = raw[i]
+            if (c == '\'') {
+                val prev = raw.getOrNull(i - 1)
+                val next = raw.getOrNull(i + 1)
+                val prevStructural = prev == null || " {,[:".contains(prev)
+                val nextStructural = next == null || " },]:".contains(next)
+                if (prevStructural || nextStructural) {
+                    sb.append('"')
+                    continue
+                }
+            }
+            sb.append(c)
+        }
+        return sb.toString()
     }
 
     override fun resolveStreamUrl(song: RemoteSong, quality: String): String? {
