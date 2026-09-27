@@ -268,7 +268,7 @@ private fun LocalResults(
 
         LazyColumn(
             state = lazyListState,
-            contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start + WindowInsetsSides.End).asPaddingValues(),
+            contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start + WindowInsetsSides.End).asPaddingValues(),
             modifier = Modifier.weight(1f)
         ) {
             result.map.forEach { (filter, items) ->
@@ -443,7 +443,7 @@ private fun RemoteResults(
             )
             else -> LazyColumn(
                 contentPadding = LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Start + WindowInsetsSides.End)
+                    .only(WindowInsetsSides.Start + WindowInsetsSides.End)
                     .asPaddingValues(),
                 modifier = Modifier.fillMaxSize()
             ) {
