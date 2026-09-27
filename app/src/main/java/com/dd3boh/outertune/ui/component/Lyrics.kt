@@ -435,9 +435,9 @@ fun Lyrics(
                                     if (!isSynced || isHighlighted) {
                                         1f
                                     } else if (isConsumed) {
-                                        0.5f
+                                        0.65f
                                     } else {
-                                        0.6f
+                                        0.75f
                                     }
                                 )
                             )
