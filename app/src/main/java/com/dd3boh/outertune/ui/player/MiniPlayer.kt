@@ -13,6 +13,7 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -126,12 +127,19 @@ fun MiniPlayer(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxSize()
-                .shadow(elevation = 8.dp, shape = RoundedCornerShape(28.dp), clip = false)
+                .shadow(elevation = 12.dp, shape = RoundedCornerShape(28.dp), clip = false)
                 .clip(RoundedCornerShape(28.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
+                            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
+                        )
+                    )
+                )
                 .border(
-                    width = 0.5.dp,
-                    color = Color.White.copy(alpha = 0.12f),
+                    width = 0.6.dp,
+                    color = Color.White.copy(alpha = 0.18f),
                     shape = RoundedCornerShape(28.dp)
                 )
         ) {
