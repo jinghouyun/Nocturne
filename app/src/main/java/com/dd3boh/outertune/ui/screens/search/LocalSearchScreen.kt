@@ -268,7 +268,7 @@ private fun LocalResults(
 
         LazyColumn(
             state = lazyListState,
-            contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start + WindowInsetsSides.End).asPaddingValues(),
+            contentPadding = PaddingValues(bottom = 76.dp + 12.dp),
             modifier = Modifier.weight(1f)
         ) {
             result.map.forEach { (filter, items) ->
@@ -442,9 +442,11 @@ private fun RemoteResults(
                 modifier = Modifier.align(Alignment.Center)
             )
             else -> LazyColumn(
-                contentPadding = LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Start + WindowInsetsSides.End)
-                    .asPaddingValues(),
+                contentPadding = PaddingValues(
+                    start = 0.dp,
+                    end = 0.dp,
+                    bottom = 76.dp + 12.dp,
+                ),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(items = uiState.songs, key = { it.id }) { song ->
