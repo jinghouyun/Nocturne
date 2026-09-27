@@ -279,9 +279,9 @@ fun PortraitPlayer(
     val queueSheetState = rememberBottomSheetState(
         dismissedBound = dismissedBound,
         expandedBound = playerSheetState.expandedBound,
-        collapsedBound = dismissedBound + (QueuePeekHeight * 1.2f),
-        // Start dismissed (off-screen) so the peeking up-chevron handle doesn't show at the
-        // bottom of the now-playing screen. The queue is still opened via the queue icon button.
+        // No peek/collapsed state: the queue sheet is either fully dismissed or fully expanded,
+        // so there is no peeking up-chevron handle at the bottom to accidentally swipe on.
+        collapsedBound = dismissedBound,
         initialAnchor = dismissedAnchor,
     )
 
