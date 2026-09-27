@@ -51,15 +51,32 @@ object KgSource : RemoteMusicSource {
                         artists = singers,
                         albumName = item.optString("AlbumName").ifEmpty { null },
                         durationSec = item.optInt("Duration", 0),
-                        thumbnailUrl = item.optString("Pic")
-                            .ifEmpty { item.optString("Albumpic") }
-                            .ifEmpty { null },
+                        thumbnailUrl = fixCoverUrl(
+                            item.optString("Image")
+                                .ifEmpty { item.optString("Pic") }
+                                .ifEmpty { item.optString("Albumpic") }
+                        ),
                         extra = mapOf("hash" to hash, "interval" to item.optInt("Duration", 0).toString())
                     )
                 )
             }
             out
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * kugou song_search_v2 returns `Image` as a template, e.g.
+     *   "http://imge.kugou.com/stdmusic/{size}/20230908/xxx.jpg"
+     * The literal "{size}" placeholder must be replaced with a real dimension (400 serves both
+     * list and now-playing art), and http must be upgraded to https. Older fields Pic/Albumpic
+     * may already be full URLs; pass them through.
+     */
+    private fun fixCoverUrl(raw: String): String? {
+        if (raw.isEmpty()) return null
+        var url = raw
+        if (url.contains("{size}")) url = url.replace("{size}", "400")
+        if (url.startsWith("http://")) url = "https://" + url.removePrefix("http://")
+        return url
     }
 
     override fun resolveStreamUrl(song: RemoteSong, quality: String): String? {

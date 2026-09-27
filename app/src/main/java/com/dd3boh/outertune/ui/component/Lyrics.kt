@@ -188,8 +188,20 @@ fun Lyrics(
         }
     }
 
-    val textColor = androidx.compose.ui.graphics.Color.White
-    val prevTextColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.4f)
+    // Lyrics must be readable on BOTH the light Material surface (FOLLOW_THEME) and the dark
+    // album-art gradient/scrim (GRADIENT/BLUR). Hardcoding White made non-current lines nearly
+    // invisible on the light lavender surface (white @ 0.3 alpha ≈ invisible).
+    val playerBackground by rememberEnumPreference(
+        key = com.dd3boh.outertune.constants.PlayerBackgroundStyleKey,
+        defaultValue = com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
+    )
+    val textColor = when (playerBackground) {
+        com.dd3boh.outertune.constants.PlayerBackgroundStyle.FOLLOW_THEME ->
+            MaterialTheme.colorScheme.onSurface
+        else -> androidx.compose.ui.graphics.Color.White
+    }
+    // Non-current lines get emphasis via Modifier.alpha below; don't pre-dim the color.
+    val prevTextColor = textColor
 
     var currentLineIndex by remember {
         mutableIntStateOf(-1)
@@ -423,9 +435,9 @@ fun Lyrics(
                                     if (!isSynced || isHighlighted) {
                                         1f
                                     } else if (isConsumed) {
-                                        0.35f
+                                        0.5f
                                     } else {
-                                        0.3f
+                                        0.6f
                                     }
                                 )
                             )
