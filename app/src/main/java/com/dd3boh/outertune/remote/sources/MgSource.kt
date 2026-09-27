@@ -64,6 +64,22 @@ object MgSource : RemoteMusicSource {
                 data.optJSONArray("singerList")?.let {
                     for (k in 0 until it.length()) singers.add(it.getJSONObject(k).optString("name"))
                 }
+                // Some migu responses omit singerList; fall back to singerName / singer array.
+                if (singers.isEmpty()) {
+                    data.optString("singerName").takeIf { it.isNotBlank() }?.let {
+                        singers.addAll(it.split("/", ",", "、").map { s -> s.trim() }.filter { it.isNotEmpty() })
+                    }
+                }
+                if (singers.isEmpty()) {
+                    data.optJSONArray("singer")?.let {
+                        for (k in 0 until it.length()) {
+                            when (val el = it.opt(k)) {
+                                is JSONObject -> singers.add(el.optString("name"))
+                                is String -> singers.add(el)
+                            }
+                        }
+                    }
+                }
                 val album = data.optJSONObject("album")
                 val albumName = album?.optString("album")?.takeIf { it != "null" && it.isNotEmpty() }
                 val duration = data.optInt("duration", 0)
@@ -71,9 +87,14 @@ object MgSource : RemoteMusicSource {
                     data.optString("img2").ifEmpty { data.optString("img1") }
                 }
                 if (img.isNotEmpty() && !img.startsWith("http")) {
-                    img = "http://d.musicapp.migu.cn$img"
+                    img = "https://d.musicapp.migu.cn$img"
+                } else if (img.isNotEmpty() && img.startsWith("http://")) {
+                    img = "https://" + img.removePrefix("http://")
                 } else if (img.isEmpty()) img = ""
-                val lrcUrl = data.optString("lrcUrl").ifEmpty { null }
+                // Try both lyric fields: the OSS lrcUrl returns LRC for some songs, the
+                // tyqk lyricUrl (.lrc file) for others. Store both and try in order at fetch time.
+                val lrcOss = data.optString("lrcUrl").ifEmpty { null }
+                val lrcDirect = data.optString("lyricUrl").ifEmpty { null }
                 out.add(
                     RemoteSong(
                         id = "NMmg$songId",
@@ -86,7 +107,8 @@ object MgSource : RemoteMusicSource {
                         thumbnailUrl = img.ifEmpty { null },
                         extra = mapOf(
                             "copyrightId" to data.optString("copyrightId"),
-                            "lrcUrl" to (lrcUrl ?: "")
+                            "lrcUrl" to (lrcOss ?: ""),
+                            "lyricUrl" to (lrcDirect ?: "")
                         )
                     )
                 )
@@ -120,15 +142,24 @@ object MgSource : RemoteMusicSource {
     }
 
     override fun getLyric(song: RemoteSong): RemoteLyric? {
-        val lrcUrl = song.extra["lrcUrl"]?.takeIf { it.isNotEmpty() } ?: return null
+        val candidates = listOfNotNull(
+            song.extra["lrcUrl"]?.takeIf { it.isNotEmpty() },
+            song.extra["lyricUrl"]?.takeIf { it.isNotEmpty() },
+        )
+        if (candidates.isEmpty()) return null
         return runCatching {
             val headers = mapOf(
                 "Referer" to "https://app.c.nf.migu.cn/",
                 "channel" to "0146921",
                 "User-Agent" to UA,
             )
-            val text = RemoteHttp.get(lrcUrl, headers)
-            if (text.isBlank()) null else RemoteLyric(lyric = text)
+            for (url in candidates) {
+                val text = RemoteHttp.get(url, headers)
+                if (!text.isBlank() && text.contains("[")) {
+                    return@runCatching RemoteLyric(lyric = text)
+                }
+            }
+            null
         }.getOrNull()
     }
 }
