@@ -61,11 +61,14 @@ object KwSource : RemoteMusicSource {
         }.getOrDefault(emptyList())
     }
 
-    /** Convert a kuwo relative album-cover path (e.g. "120/s4s18/85/xxx.jpg") to a full URL. */
+    /** Convert a kuwo relative album-cover path (e.g. "120/s4s18/85/xxx.jpg") to a full URL.
+     *  The size prefix (e.g. "120/") often 404s on the CDN; replace with a known-good size "500". */
     private fun coverToFullUrl(path: String): String? {
         if (path.isEmpty()) return null
         if (path.startsWith("http")) return path
-        return "https://img1.kuwo.cn/star/albumcover/$path"
+        // Replace leading size segment (digits/) with 500/ — CDN only serves 300 and 500
+        val fixedPath = path.replace(Regex("^\\d+/"), "500/")
+        return "https://img1.kuwo.cn/star/albumcover/$fixedPath"
     }
 
     /**
@@ -136,19 +139,44 @@ object KwSource : RemoteMusicSource {
         val header = String(bytes, 0, headerEnd, Charsets.ISO_8859_1)
         if (!header.startsWith("tp=content")) return null
         val body = bytes.copyOfRange(headerEnd + 4, bytes.size)
+        // Step 1: zlib decompress
         val inflater = Inflater()
         inflater.setInput(body)
-        val out = java.io.ByteArrayOutputStream(64 * 1024)
+        val zlibOut = java.io.ByteArrayOutputStream(64 * 1024)
         val buf = ByteArray(8192)
         var done = false
         while (!done) {
             val n = try { inflater.inflate(buf) } catch (e: Exception) { done = true; break }
             if (n == 0) break
-            out.write(buf, 0, n)
+            zlibOut.write(buf, 0, n)
         }
         inflater.end()
-        val text = out.toString("GB18030")
-        return if (text.isBlank()) null else RemoteLyric(lyric = text)
+        // Step 2: base64 decode (the zlib output is base64-encoded)
+        val b64Text = zlibOut.toString("GB18030").trim()
+        val decoded = try {
+            android.util.Base64.decode(b64Text, android.util.Base64.DEFAULT)
+        } catch (e: Exception) { return null }
+        // Step 3: XOR decrypt with "yeelion"
+        for (i in decoded.indices) decoded[i] = (decoded[i].toInt() xor XOR_KEY[i % XOR_KEY.size].toInt()).toByte()
+        // Step 4: GB18030 decode → Kuwo extended LRC (word-level timestamps)
+        val rawText = String(decoded, java.nio.charset.Charset.forName("GB18030"))
+        // Step 5: Convert Kuwo extended LRC to standard LRC
+        val standard = kuwoLrcxToStandard(rawText)
+        return if (standard.isBlank()) null else RemoteLyric(lyric = standard)
+    }
+
+    /** Strip Kuwo word-level timestamps <duration,offset> and metadata headers to get standard LRC. */
+    private fun kuwoLrcxToStandard(text: String): String {
+        val lines = text.lines()
+        val out = ArrayList<String>()
+        for (line in lines) {
+            // Skip metadata headers
+            if (line.startsWith("[ver:") || line.startsWith("[kuwo:") || line.startsWith("[ti:")) continue
+            // Strip word-level <...> timestamps
+            val stripped = line.replace(Regex("<[^>]*>"), "")
+            if (stripped.isNotBlank()) out.add(stripped)
+        }
+        return out.joinToString("\n")
     }
 
     private fun indexOf(data: ByteArray, pattern: ByteArray): Int {
