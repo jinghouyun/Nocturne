@@ -93,7 +93,7 @@ object KgSource : RemoteMusicSource {
                 ?: return@runCatching null
             val id = candidate.optString("id")
             val accessKey = candidate.optString("accesskey")
-            val fmt = candidate.optString("fmt")
+            val fmt = candidate.optString("fmt").ifEmpty { "lrc" }
             // step 2: download
             val dlUrl = "http://lyrics.kugou.com/download" +
                 "?ver=1&client=pc&id=$id&accesskey=$accessKey&fmt=$fmt&charset=utf8"
