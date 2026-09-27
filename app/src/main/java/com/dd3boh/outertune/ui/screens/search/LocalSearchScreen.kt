@@ -152,7 +152,8 @@ fun LocalSearchScreen(
 
     Column(
         modifier = Modifier
-            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+            // 不预留底部 inset：歌曲列表一直铺到屏幕底部，迷你播放器悬浮盖在上面（用户确认可被挡）
+            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
     ) {
         // Source selector: local library vs remote online sources (incl. custom)
         ChipsRow(
@@ -268,7 +269,7 @@ private fun LocalResults(
 
         LazyColumn(
             state = lazyListState,
-            contentPadding = PaddingValues(bottom = 76.dp + 12.dp),
+            contentPadding = PaddingValues(bottom = 0.dp),
             modifier = Modifier.weight(1f)
         ) {
             result.map.forEach { (filter, items) ->
@@ -445,7 +446,7 @@ private fun RemoteResults(
                 contentPadding = PaddingValues(
                     start = 0.dp,
                     end = 0.dp,
-                    bottom = 76.dp + 12.dp,
+                    bottom = 0.dp,
                 ),
                 modifier = Modifier.fillMaxSize()
             ) {
