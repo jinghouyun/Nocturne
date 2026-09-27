@@ -40,6 +40,7 @@ compose-icons-extended = { group = "androidx.compose.material", name = "material
 
 # ui
 coil = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coilNetwork = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 lazycolumnscrollbar = { group = "com.github.nanihadesuka", name = "LazyColumnScrollbar", version.ref = "lazycolumnscrollbar" }
 shimmer = { group = "com.valentinilk.shimmer", name = "compose-shimmer", version = "1.5.0" }
 

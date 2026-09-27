@@ -280,7 +280,9 @@ fun PortraitPlayer(
         dismissedBound = dismissedBound,
         expandedBound = playerSheetState.expandedBound,
         collapsedBound = dismissedBound + (QueuePeekHeight * 1.2f),
-        initialAnchor = collapsedAnchor,
+        // Start dismissed (off-screen) so the peeking up-chevron handle doesn't show at the
+        // bottom of the now-playing screen. The queue is still opened via the queue icon button.
+        initialAnchor = dismissedAnchor,
     )
 
     Column(

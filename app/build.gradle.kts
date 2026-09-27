@@ -218,6 +218,7 @@ dependencies {
 
     // ui
     implementation(libs.coil)
+    implementation(libs.coilNetwork)
     implementation(libs.lazycolumnscrollbar)
     implementation(libs.shimmer)
 
