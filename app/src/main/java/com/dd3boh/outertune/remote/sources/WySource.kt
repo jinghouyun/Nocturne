@@ -30,31 +30,59 @@ object WySource : RemoteMusicSource {
         val resp = RemoteHttp.get(url, headers)
         val json = JSONObject(resp)
         val songs = json.optJSONObject("result")?.optJSONArray("songs") ?: return emptyList()
-        val out = ArrayList<RemoteSong>()
+
+        // Collect raw rows first; the legacy search endpoint has no picUrl, so fetch covers
+        // in ONE batched song-detail request below.
+        data class Row(val id: String, val name: String, val artists: List<String>, val albumName: String?, val durationSec: Int)
+        val rows = ArrayList<Row>()
         for (i in 0 until songs.length()) {
             val item = songs.getJSONObject(i)
             val id = item.getLong("id").toString()
-            val name = item.optString("name")
             val ar = item.optJSONArray("artists")
             val artists = mutableListOf<String>()
             ar?.let { for (j in 0 until it.length()) artists.add(it.getJSONObject(j).optString("name")) }
             val al = item.optJSONObject("album")
-            val albumName = al?.optString("name")?.takeIf { it != "null" }
-            out.add(
-                RemoteSong(
-                    id = "NMwy$id",
-                    source = sourceId,
-                    sourceSongId = id,
-                    title = name,
+            rows.add(
+                Row(
+                    id = id,
+                    name = item.optString("name"),
                     artists = artists,
-                    albumName = albumName,
-                    durationSec = (item.optLong("duration", 0) / 1000).toInt(),
-                    thumbnailUrl = null,
-                    extra = emptyMap()
+                    albumName = al?.optString("name")?.takeIf { it != "null" },
+                    durationSec = (item.optLong("duration", 0) / 1000).toInt()
                 )
             )
         }
-        return out
+        val picMap = HashMap<String, String>()
+        runCatching {
+            if (rows.isNotEmpty()) {
+                val idsJson = rows.joinToString(",", "[", "]") { it.id }
+                val detail = JSONObject(
+                    RemoteHttp.get(
+                        "https://music.163.com/api/song/detail/?ids=$idsJson", headers
+                    )
+                )
+                detail.optJSONArray("songs")?.let { arr ->
+                    for (i in 0 until arr.length()) {
+                        val s = arr.getJSONObject(i)
+                        val pic = s.optJSONObject("album")?.optString("picUrl")
+                        if (!pic.isNullOrEmpty() && pic != "null") picMap[s.getLong("id").toString()] = pic
+                    }
+                }
+            }
+        }
+        return rows.map {
+            RemoteSong(
+                id = "NMwy${it.id}",
+                source = sourceId,
+                sourceSongId = it.id,
+                title = it.name,
+                artists = it.artists,
+                albumName = it.albumName,
+                durationSec = it.durationSec,
+                thumbnailUrl = picMap[it.id],
+                extra = emptyMap()
+            )
+        }
     }
 
     override fun resolveStreamUrl(song: RemoteSong, quality: String): String? {
