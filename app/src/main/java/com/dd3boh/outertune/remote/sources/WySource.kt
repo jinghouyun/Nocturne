@@ -21,19 +21,13 @@ object WySource : RemoteMusicSource {
 
     override fun search(query: String, page: Int, limit: Int): List<RemoteSong> {
         val offset = limit * (page - 1)
-        val payload = JSONObject()
-            .put("s", query)
-            .put("type", 1)
-            .put("limit", limit)
-            .put("offset", offset)
-            .put("total", page == 1)
-            .toString()
-        // weapi expects an object
-        val form = WyCrypto.weapi(JSONObject(payload))
+        // The weapi cloudsearch endpoint now rejects requests without a logged-in cookie.
+        // Use the legacy open search endpoint which still returns results unencrypted.
+        val url = "https://music.163.com/api/search/get/web" +
+            "?s=" + java.net.URLEncoder.encode(query, "UTF-8") +
+            "&type=1&offset=$offset&limit=$limit"
         val headers = mapOf("User-Agent" to UA, "Referer" to "https://music.163.com")
-        val resp = RemoteHttp.postForm(
-            "https://music.163.com/weapi/cloudsearch/pc", form, headers
-        )
+        val resp = RemoteHttp.get(url, headers)
         val json = JSONObject(resp)
         val songs = json.optJSONObject("result")?.optJSONArray("songs") ?: return emptyList()
         val out = ArrayList<RemoteSong>()
@@ -41,14 +35,11 @@ object WySource : RemoteMusicSource {
             val item = songs.getJSONObject(i)
             val id = item.getLong("id").toString()
             val name = item.optString("name")
-            val ar = item.optJSONArray("ar")
+            val ar = item.optJSONArray("artists")
             val artists = mutableListOf<String>()
             ar?.let { for (j in 0 until it.length()) artists.add(it.getJSONObject(j).optString("name")) }
-            val al = item.optJSONObject("al")
+            val al = item.optJSONObject("album")
             val albumName = al?.optString("name")?.takeIf { it != "null" }
-            var pic = al?.optString("picUrl")
-            if (pic != null && pic.startsWith("http://")) pic = "https://" + pic.substring(7)
-            val dt = item.optLong("dt", 0) / 1000
             out.add(
                 RemoteSong(
                     id = "NMwy$id",
@@ -57,8 +48,8 @@ object WySource : RemoteMusicSource {
                     title = name,
                     artists = artists,
                     albumName = albumName,
-                    durationSec = dt.toInt(),
-                    thumbnailUrl = pic,
+                    durationSec = (item.optLong("duration", 0) / 1000).toInt(),
+                    thumbnailUrl = null,
                     extra = emptyMap()
                 )
             )
