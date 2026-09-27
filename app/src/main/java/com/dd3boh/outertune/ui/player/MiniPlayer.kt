@@ -76,9 +76,11 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.component.findCurrentLineIndex
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.roundToInt
+import org.akanework.gramophone.logic.utils.SemanticLyrics
 
 @Composable
 fun MiniPlayer(
@@ -196,6 +198,23 @@ fun MiniMediaInfo(
     val isWaitingForNetwork by playerConnection?.waitingForNetworkConnection?.collectAsState(initial = false)
         ?: remember { mutableStateOf(false) }
 
+    // Live now-playing lyric line (like the reference video's mini player). Falls back to artist.
+    val playerLyrics by playerConnection!!.currentLyrics.collectAsState(initial = null)
+    var currentLyricLine by remember(mediaMetadata.id) { mutableStateOf("") }
+    LaunchedEffect(playerLyrics) {
+        val synced = playerLyrics as? SemanticLyrics.SyncedLyrics
+        if (synced == null || synced.text.isEmpty()) {
+            currentLyricLine = ""
+            return@LaunchedEffect
+        }
+        while (isActive) {
+            delay(500)
+            val pos = playerConnection.player.currentPosition
+            val idx = findCurrentLineIndex(synced.text, pos)
+            currentLyricLine = synced.text.getOrNull(idx)?.text?.trim().orEmpty()
+        }
+    }
+
     val px = (ListThumbnailSize.value * density.density).roundToInt()
 
     Row(
@@ -271,7 +290,7 @@ fun MiniMediaInfo(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = mediaMetadata.artists.joinToString { it.name },
+                text = currentLyricLine.ifEmpty { mediaMetadata.artists.joinToString { it.name } },
                 color = MaterialTheme.colorScheme.secondary,
                 fontSize = 12.sp,
                 maxLines = 1,
