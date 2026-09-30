@@ -85,7 +85,10 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -371,6 +374,40 @@ class MainActivity : ComponentActivity() {
                         collapsedBound = bottomInset + MiniPlayerHeight + 4.dp,
                         expandedBound = maxHeight,
                     )
+
+                    // Back navigation policy:
+                    // - player sheet expanded/collapsed -> its own BackHandler collapses it first
+                    // - non-root nav destination -> pop back to the root (main) page
+                    // - root (main) page -> show "exit?" dialog; pressing back again leaves the app
+                    var showExitDialog by remember { mutableStateOf(false) }
+
+                    BackHandler(
+                        enabled = (playerBottomSheetState.isCollapsed || playerBottomSheetState.isDismissed) && !showExitDialog
+                    ) {
+                        if (navController.previousBackStackEntry == null) {
+                            showExitDialog = true
+                        } else {
+                            navController.navigateUp()
+                        }
+                    }
+                    // While the exit dialog is up, a further system back press exits immediately.
+                    BackHandler(enabled = showExitDialog) {
+                        finish()
+                    }
+
+                    if (showExitDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showExitDialog = false },
+                            title = { Text("退出软件") },
+                            text = { Text("确定要退出音乐播放器吗？") },
+                            confirmButton = {
+                                TextButton(onClick = { finish() }) { Text("退出") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showExitDialog = false }) { Text("取消") }
+                            }
+                        )
+                    }
 
                     // Main insets for navhost content.
                     val playerAwareWindowInsets =
