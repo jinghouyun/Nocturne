@@ -111,16 +111,12 @@ object WySource : RemoteMusicSource {
 
     override fun getLyric(song: RemoteSong): RemoteLyric? {
         val id = song.sourceSongId.toLongOrNull() ?: return null
-        val payload = JSONObject()
-            .put("id", id)
-            .put("lv", -1)
-            .put("yv", -1)
-            .put("rv", -1)
-        val form = WyCrypto.eapi("/api/song/lyric/v1", payload)
-        val headers = mapOf("User-Agent" to UA)
-        val resp = RemoteHttp.postForm(
-            "https://interface3.music.163.com/eapi/song/lyric/v1", form, headers
-        )
+        // The eapi /api/song/lyric/v1 endpoint rejects requests without a logged-in
+        // cookie (returns empty / error), same as weapi cloudsearch. Use the legacy
+        // open lyric endpoint which still returns the full LRC unencrypted.
+        val url = "https://music.163.com/api/song/lyric?id=$id&lv=-1&kv=-1&tv=-1"
+        val headers = mapOf("User-Agent" to UA, "Referer" to "https://music.163.com")
+        val resp = RemoteHttp.get(url, headers)
         return runCatching {
             val json = JSONObject(resp)
             val lrc = json.optJSONObject("lrc")?.optString("lyric")
