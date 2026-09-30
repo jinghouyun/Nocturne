@@ -387,7 +387,10 @@ class MainActivity : ComponentActivity() {
                         if (navController.previousBackStackEntry == null) {
                             showExitDialog = true
                         } else {
-                            navController.navigateUp()
+                            val handled = navController.navigateUp()
+                            // Never leave the app silently: if pop-back fails (unexpected nav
+                            // state), show the exit confirmation instead of finishing.
+                            if (!handled) showExitDialog = true
                         }
                     }
                     // While the exit dialog is up, a further system back press exits immediately.
