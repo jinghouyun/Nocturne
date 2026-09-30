@@ -92,14 +92,16 @@ object KgSource : RemoteMusicSource {
     }
 
     override fun getLyric(song: RemoteSong): RemoteLyric? {
-        val hash = song.extra["hash"] ?: return null
-        val interval = song.extra["interval"]?.toLongOrNull() ?: 0L
+        // When lyrics are fetched after playback started, the mediaId only carries the
+        // hash (NMkg<hash>), so extra is empty. Fall back to sourceSongId (= hash).
+        val hash = song.extra["hash"] ?: song.sourceSongId.ifEmpty { return null }
+        val interval = (song.extra["interval"]?.toLongOrNull() ?: song.durationSec.toLong()) * 1000L
         return runCatching {
             // step 1: find candidate
             val searchUrl = "http://lyrics.kugou.com/search" +
                 "?ver=1&man=yes&client=pc" +
                 "&keyword=${java.net.URLEncoder.encode(song.title, "UTF-8")}" +
-                "&hash=$hash&timelength=${interval * 1000}&lrctxt=1"
+                "&hash=$hash&timelength=$interval&lrctxt=1"
             val headers = mapOf(
                 "KG-RC" to "1",
                 "KG-THash" to "expand_search_manager.cpp:852736169:451",

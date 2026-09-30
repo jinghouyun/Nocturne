@@ -142,10 +142,25 @@ object MgSource : RemoteMusicSource {
     }
 
     override fun getLyric(song: RemoteSong): RemoteLyric? {
-        val candidates = listOfNotNull(
-            song.extra["lrcUrl"]?.takeIf { it.isNotEmpty() },
-            song.extra["lyricUrl"]?.takeIf { it.isNotEmpty() },
-        )
+        // When lyrics are fetched after playback started, the mediaId only carries the
+        // songId (NMmg<songId>), so extra (lrcUrl/lyricUrl) is empty. Recover lrcUrl from
+        // the resourceinfo endpoint in that case.
+        val candidates = mutableListOf<String>()
+        song.extra["lrcUrl"]?.takeIf { it.isNotEmpty() }?.let { candidates.add(it) }
+        song.extra["lyricUrl"]?.takeIf { it.isNotEmpty() }?.let { candidates.add(it) }
+        if (candidates.isEmpty()) {
+            runCatching {
+                val infoUrl = "https://pd.musicapp.migu.cn/MIGUM2.0/v1.0/content/resourceinfo.do" +
+                    "?resourceId=${song.sourceSongId}&resourceType=2"
+                val infoResp = RemoteHttp.get(
+                    infoUrl,
+                    mapOf("User-Agent" to UA, "Referer" to "https://music.migu.cn/")
+                )
+                val lrc = JSONObject(infoResp)
+                    .optJSONArray("resource")?.optJSONObject(0)?.optString("lrcUrl")
+                if (!lrc.isNullOrEmpty()) candidates.add(lrc)
+            }
+        }
         if (candidates.isEmpty()) return null
         return runCatching {
             val headers = mapOf(
