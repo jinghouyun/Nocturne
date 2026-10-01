@@ -36,6 +36,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Install emulator native dependencies
+        # The emulator's qemu binary is dynamically linked against libpulse and
+        # fails to start with "libpulse.so.0: cannot open shared object" on
+        # runner images that dropped it, even when -no-audio is passed (the
+        # missing library aborts startup before that flag is parsed).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpulse0
+
       - name: Run instrumented test on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -45,8 +54,10 @@ jobs:
           target: google_atd
           arch: x86_64
           profile: pixel_6
-          boot-timeout: 1200
-          emulator-options: -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 2048 -cores 2
+          emulator-boot-timeout: 1200
+          ram-size: 2048
+          cores: 2
+          emulator-options: -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect
           # Always collect screenshots/logcat even if the instrumentation fails,
           # then propagate the real exit status.
           script: |
