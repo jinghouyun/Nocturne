@@ -13,8 +13,13 @@ import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.view.KeyEvent
 import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -137,6 +142,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavController
 import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowWidthSizeClass
+import com.nocturne.player.BuildConfig
 import com.nocturne.player.constants.AppBarHeight
 import com.nocturne.player.constants.DEFAULT_ENABLED_TABS
 import com.nocturne.player.constants.DarkMode
@@ -248,6 +254,47 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    /** Unified back handling for all three back sources (navbar key, gesture, dispatcher). */
+    private fun handleBackPress() {
+        if (BuildConfig.DEBUG) {
+            // Debug-only breadcrumb: if the user presses back and lands on the
+            // launcher WITHOUT seeing this toast, the back event never reached
+            // the app (system-level interception).
+            Toast.makeText(this, "返回事件已进入App拦截链", Toast.LENGTH_SHORT).show()
+        }
+        if (exitDialogShown) {
+            finish()
+            return
+        }
+        val nc = navControllerRef
+        if (nc == null) return
+        val sheet = playerSheetStateRef
+        if (sheet != null && !sheet.isCollapsed && !sheet.isDismissed) {
+            sheet.collapseSoft()
+            return
+        }
+        if (nc.previousBackStackEntry == null) {
+            exitDialogShown = true
+        } else if (!nc.navigateUp()) {
+            exitDialogShown = true
+        }
+    }
+
+    /**
+     * Physical-layer interception for the hardware/navbar BACK key. We forward
+     * it into the normal OnBackPressedDispatcher chain (so Compose BackHandlers
+     * like the search bar keep their priority) and consume it, guaranteeing the
+     * event can never fall through to the system default (which would finish the
+     * task silently).
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_DOWN) {
+            onBackPressedDispatcher.onBackPressed()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
 
@@ -281,24 +328,35 @@ class MainActivity : ComponentActivity() {
         // task silently and drop the user to the launcher.
         onBackPressedDispatcher.addCallback(object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (exitDialogShown) {
-                    finish()
-                    return
-                }
-                val nc = navControllerRef
-                if (nc == null) return
-                val sheet = playerSheetStateRef
-                if (sheet != null && !sheet.isCollapsed && !sheet.isDismissed) {
-                    sheet.collapseSoft()
-                    return
-                }
-                if (nc.previousBackStackEntry == null) {
-                    exitDialogShown = true
-                } else if (!nc.navigateUp()) {
-                    exitDialogShown = true
-                }
+                handleBackPress()
             }
         })
+
+        // Native gesture-back callback (API 33+). Registered directly on the
+        // window's OnBackInvokedDispatcher as a physical-layer fallback: even if
+        // the androidx bridge misbehaves, gesture-back events still reach us.
+        if (Build.VERSION.SDK_INT >= 33) {
+            window.onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                object : OnBackInvokedCallback {
+                    override fun onBackInvoked() {
+                        handleBackPress()
+                    }
+                }
+            )
+        }
+
+        // Debug-only: startup toast proving the installed build & that the back
+        // interception is armed. Lets the user verify they are on the right APK.
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (BuildConfig.DEBUG) {
+                Toast.makeText(
+                    this,
+                    "OuterTune v${BuildConfig.VERSION_NAME} 返回拦截已启用",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }, 900)
 
         setContent {
             Log.v(MAIN_TAG, "RC-1")

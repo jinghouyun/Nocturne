@@ -29,8 +29,8 @@ android {
         applicationId = "com.nocturne.player"
         minSdk = 26
         targetSdk = 37
-        versionCode = 76
-        versionName = "0.11.4"
+        versionCode = 78
+        versionName = "0.11.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
