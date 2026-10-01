@@ -385,15 +385,25 @@ class MainActivity : ComponentActivity() {
                     var showExitDialog by remember { mutableStateOf(false) }
 
                     BackHandler(
-                        enabled = (playerBottomSheetState.isCollapsed || playerBottomSheetState.isDismissed) && !showExitDialog
+                        // Always-on safety net: no route/state may fall through to the
+                        // default Activity back (which would finish the app silently).
+                        // The player sheet and the search bar register their own handlers
+                        // later (higher priority) and take over when they are active.
+                        enabled = !showExitDialog
                     ) {
-                        if (navController.previousBackStackEntry == null) {
-                            showExitDialog = true
-                        } else {
-                            val handled = navController.navigateUp()
-                            // Never leave the app silently: if pop-back fails (unexpected nav
-                            // state), show the exit confirmation instead of finishing.
-                            if (!handled) showExitDialog = true
+                        when {
+                            // player sheet expanded (not collapsed, not dismissed) -> collapse it
+                            !playerBottomSheetState.isCollapsed && !playerBottomSheetState.isDismissed ->
+                                playerBottomSheetState.collapseSoft()
+                            // root destination -> ask before exiting
+                            navController.previousBackStackEntry == null -> showExitDialog = true
+                            // any deeper page -> pop back to the root (main) page
+                            else -> {
+                                val handled = navController.navigateUp()
+                                // Never leave the app silently: if pop-back fails (unexpected
+                                // nav state), show the exit confirmation instead of finishing.
+                                if (!handled) showExitDialog = true
+                            }
                         }
                     }
                     // While the exit dialog is up, a further system back press exits immediately.
