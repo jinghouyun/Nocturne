@@ -58,6 +58,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
@@ -86,7 +88,6 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -122,6 +123,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.util.fastForEach
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -399,17 +402,50 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (showExitDialog) {
-                        AlertDialog(
+                        // Use a plain Dialog with back/outside-touch disabled so the system back
+                        // press reaches our BackHandler(showExitDialog) -> finish(), i.e. the user
+                        // can exit by pressing back again while the dialog is up.
+                        Dialog(
                             onDismissRequest = { showExitDialog = false },
-                            title = { Text("退出软件") },
-                            text = { Text("确定要退出音乐播放器吗？") },
-                            confirmButton = {
-                                TextButton(onClick = { finish() }) { Text("退出") }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showExitDialog = false }) { Text("取消") }
+                            properties = DialogProperties(
+                                dismissOnBackPress = false,
+                                dismissOnClickOutside = false,
+                            )
+                        ) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp)
+                                ) {
+                                    Text(
+                                        text = "退出软件",
+                                        style = MaterialTheme.typography.titleLarge,
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "确定要退出音乐播放器吗？",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.height(24.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        TextButton(onClick = { showExitDialog = false }) { Text("取消") }
+                                        Spacer(Modifier.width(8.dp))
+                                        TextButton(onClick = { finish() }) { Text("退出") }
+                                    }
+                                }
                             }
-                        )
+                        }
                     }
 
                     // Main insets for navhost content.
