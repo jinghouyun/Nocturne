@@ -57,7 +57,7 @@ jobs:
           emulator-boot-timeout: 1200
           ram-size: 2048
           cores: 2
-          emulator-options: -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect
+          emulator-options: -no-window -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -no-metrics -gpu swiftshader_indirect
           # Always collect screenshots/logcat even if the instrumentation fails,
           # then propagate the real exit status.
           script: |
