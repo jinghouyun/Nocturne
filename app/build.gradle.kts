@@ -29,8 +29,8 @@ android {
         applicationId = "com.apple.music"
         minSdk = 26
         targetSdk = 37
-        versionCode = 77
-        versionName = "0.11.5"
+        versionCode = 78
+        versionName = "0.11.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
