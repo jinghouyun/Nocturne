@@ -226,6 +226,11 @@ fun SearchBar(
                     trailingIcon = trailingIcon,
                     interactionSource = interactionSource,
                     focusRequester = focusRequester,
+                    iconEdgeSpacing = lerp(
+                        SearchBarIconOffsetX,
+                        ActiveIconEdgeSpacing,
+                        animationProgress
+                    ),
                 )
 
                 if (animationProgress > 0) {
@@ -259,6 +264,7 @@ private fun SearchBarInputField(
     colors: TextFieldColors = SearchBarDefaults.inputFieldColors(),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     focusRequester: FocusRequester = remember { FocusRequester() },
+    iconEdgeSpacing: Dp = SearchBarIconOffsetX,
 ) {
     val searchSemantics = "Search" // getString(Strings.SearchBarSearch) R.string.m3c_search_bar_search
     val suggestionsAvailableSemantics = "Suggestions below" // getString(Strings.SuggestionsAvailable) R.string.m3c_suggestions_available
@@ -273,7 +279,7 @@ private fun SearchBarInputField(
             .height(InputFieldHeight)
     ) {
         if (leadingIcon != null) {
-            Spacer(Modifier.width(SearchBarIconOffsetX))
+            Spacer(Modifier.width(iconEdgeSpacing))
             leadingIcon()
         }
 
@@ -331,7 +337,7 @@ private fun SearchBarInputField(
 
         if (trailingIcon != null) {
             trailingIcon()
-            Spacer(Modifier.width(SearchBarIconOffsetX))
+            Spacer(Modifier.width(iconEdgeSpacing))
         }
     }
 }
@@ -346,6 +352,14 @@ internal val SearchBarHorizontalPadding: Dp = 12.dp
 
 // Search bar has 16dp padding between icons and start/end, while by default text field has 12dp.
 val SearchBarIconOffsetX: Dp = 4.dp
+
+// When the search bar is expanded to full screen, both icons are moved inward so
+// their 48dp touch targets clear the system back-gesture edge inset (~24dp).
+// Otherwise tapping the back arrow also starts an edge predictive-back gesture:
+// the onClick collapses the bar first (user briefly sees the main page), then the
+// gesture commits on release and finishes the task straight to the launcher,
+// bypassing the in-app back interceptors and the exit confirmation dialog.
+private val ActiveIconEdgeSpacing: Dp = 28.dp
 
 // Animation specs
 private const val AnimationDurationMillis: Int = durationMedium2.toInt()
