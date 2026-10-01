@@ -49,6 +49,7 @@ import com.nocturne.player.LocalPlayerAwareWindowInsets
 import com.nocturne.player.R
 import com.nocturne.player.constants.DEFAULT_ENABLED_TABS
 import com.nocturne.player.constants.EnabledTabsKey
+import androidx.compose.material3.IconButton as M3IconButton
 import com.nocturne.player.ui.component.SearchBar
 import com.nocturne.player.ui.component.button.IconButton
 import com.nocturne.player.ui.screens.Screens
@@ -164,12 +165,12 @@ fun SearchBarContainer(
                 Text(text = stringResource(if (!searchActive) R.string.search else R.string.search_library))
             },
             leadingIcon = {
-                IconButton(
+                M3IconButton(
                     onClick = {
-                        when {
-                            searchActive -> onSearchActiveChange(false)
-                            currentRoute?.startsWith("search") == true -> navController.navigateUp()
-                            else -> navController.navigateUp()
+                        if (searchActive) {
+                            onSearchActiveChange(false)
+                        } else {
+                            navController.navigateUp()
                         }
                     },
                     modifier = Modifier.testTag("search_back_arrow"),
