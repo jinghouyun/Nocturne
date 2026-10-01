@@ -29,19 +29,19 @@ jobs:
       - name: 赋予 gradlew 执行权限
         run: chmod +x ./gradlew
 
-      - name: 构建 Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: 构建 APK
+        run: ./gradlew assembleUserdebug --no-daemon --stacktrace
 
       - name: 复制 APK
         run: |
           find app/build/outputs/apk -name "*.apk"
-          cp app/build/outputs/apk/full/debug/*arm64-v8a*.apk app.apk
+          cp app/build/outputs/apk/full/userdebug/*arm64-v8a*.apk app.apk
           ls -lh app.apk
 
       - name: 上传 APK 产物
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: app
           path: app.apk
 
       - name: 推送到 apk 分支

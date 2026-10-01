@@ -72,6 +72,7 @@ android {
             isShrinkResources = false
 //            isDebuggable = true
             isProfileable = true
+            signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
     }
