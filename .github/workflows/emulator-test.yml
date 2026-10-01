@@ -39,27 +39,31 @@ jobs:
       - name: Run instrumented test on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
+          # ATD (Automation Test Distribution) images are stripped down and boot
+          # much faster than the full google_apis images under software rendering.
+          api-level: 30
+          target: google_atd
           arch: x86_64
           profile: pixel_6
-          emulator-options: -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect
+          boot-timeout: 1200
+          emulator-options: -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 2048 -cores 2
+          # Always collect screenshots/logcat even if the instrumentation fails,
+          # then propagate the real exit status.
           script: |
-            set -e
             PKG=com.nocturne.player.debug
+            mkdir -p artifacts/screenshots
+            TEST_FAILED=0
 
-            # Build, install and run the instrumentation tests (emulator is already up).
-            ./gradlew connectedCoreDebugAndroidTest --no-daemon
+            ./gradlew connectedCoreDebugAndroidTest --no-daemon || TEST_FAILED=1
 
-            # Pull screenshots captured by the test.
             adb root || true
             adb wait-for-device
             sleep 2
-            mkdir -p artifacts/screenshots
             adb pull /sdcard/Android/data/$PKG/files/test_screenshots artifacts/screenshots || true
-
-            # Dump full logcat for diagnosis.
             adb logcat -d > artifacts/logcat.txt || true
+
+            echo "TEST_FAILED=$TEST_FAILED"
+            if [ "$TEST_FAILED" = "1" ]; then exit 1; fi
 
       - name: Upload screenshots & logs
         if: always()
