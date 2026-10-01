@@ -6,12 +6,15 @@
 package com.nocturne.player
 
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
@@ -40,13 +43,23 @@ class NavigationBackTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     private fun screenshot(name: String) {
-        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
-        val dir = File(
-            instrumentation.targetContext.getExternalFilesDir(null),
-            "test_screenshots"
-        ).apply { mkdirs() }
-        FileOutputStream(File(dir, "$name.png")).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        // Prefer Compose's captureToImage over UiAutomation.takeScreenshot():
+        // the latter returns null on the stripped google_atd image, which
+        // silently produced no screenshots. captureToImage reads straight from
+        // the Compose graphics layer and works under swiftshader.
+        try {
+            val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()
+            val dir = File(
+                instrumentation.targetContext.getExternalFilesDir(null),
+                "test_screenshots"
+            ).apply { mkdirs() }
+            val outFile = File(dir, "$name.png")
+            FileOutputStream(outFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            android.util.Log.i("NavTest", "screenshot saved: ${outFile.absolutePath}")
+        } catch (t: Throwable) {
+            android.util.Log.e("NavTest", "screenshot '$name' failed", t)
         }
     }
 

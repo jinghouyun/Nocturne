@@ -19,6 +19,9 @@ adb root || true
 adb wait-for-device || true
 sleep 2
 adb pull "/sdcard/Android/data/${PKG}/files/test_screenshots" artifacts/screenshots || true
+# Fallback: screencap is a basic system tool (works on ATD where the in-test
+# UiAutomation screenshot may not), so always capture the final screen.
+adb exec-out screencap -p > artifacts/screenshots/final_screencap.png 2>/dev/null || true
 adb logcat -d > artifacts/logcat.txt || true
 
 echo "connectedCoreDebugAndroidTest exit code: ${TEST_RC}"
