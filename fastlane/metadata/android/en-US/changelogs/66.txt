@@ -10,4 +10,4 @@ Version 0.9.3
 • Various UI improvements
 • General optimizations, improvements, and fixes
 
-Full changelog: https://github.com/OuterTune/OuterTune/releases/tag/v0.9.3
+Full changelog: https://github.com/Nocturne/Nocturne/releases/tag/v0.9.3

@@ -1,0 +1,148 @@
+package com.nocturne.player.models
+
+import androidx.compose.runtime.Immutable
+import com.nocturne.player.db.entities.Song
+import com.nocturne.player.db.entities.SongEntity
+import com.nocturne.player.utils.LocalArtworkPath
+import java.io.Serializable
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+
+@Immutable
+data class MediaMetadata(
+    val id: String,
+    val title: String,
+    val artists: List<Artist>,
+    val duration: Int,
+    val thumbnailUrl: String? = null,
+    val trackNumber: Int? = null,
+    val discNumber: Int? = null,
+    val album: Album? = null,
+    val genre: List<Genre>?,
+    val year: Int? = null,
+    private val date: LocalDateTime? = null, // ID3 tag property
+    private val dateModified: LocalDateTime? = null, // file property
+    val inLibrary: LocalDateTime? = null, // doubles as "date added"
+    val setVideoId: String? = null,
+    val isLocal: Boolean = false,
+    val localPath: String? = null,
+    val liked: Boolean = false,
+    val composeUidWorkaround: Double = Math.random(), // compose will crash without this hax
+
+    var shuffleIndex: Int = -1
+) : Serializable {
+    data class Artist(
+        val id: String?,
+        val name: String,
+    ) : Serializable
+
+    data class Album(
+        val id: String,
+        val title: String,
+    ) : Serializable
+
+    data class Genre(
+        val id: String?,
+        val title: String,
+    ) : Serializable
+
+    fun toSongEntity() = SongEntity(
+        id = id,
+        title = title,
+        duration = duration,
+        thumbnailUrl = thumbnailUrl,
+        trackNumber = trackNumber,
+        discNumber = discNumber,
+        albumId = album?.id,
+        albumName = album?.title,
+        year = year,
+        date = date,
+        dateModified = dateModified,
+        liked = liked,
+        inLibrary = inLibrary,
+        isLocal = isLocal,
+        localPath = localPath
+    )
+
+    /**
+     * Returns a full date string. If no full date is present, returns the year.
+     * This is the song's tag's date/year, NOT dateModified.
+     */
+    fun getDateString(): String? {
+        return date?.toLocalDate()?.toString()
+            ?: if (year != null) {
+                return year.toString()
+            } else {
+                return null
+            }
+    }
+
+    /**
+     * Returns a full date modified string
+     */
+    fun getDateModifiedString(): String? {
+        return dateModified?.toLocalDate()?.toString()
+    }
+
+    /**
+     * Get the value of the date released in Epoch Seconds
+     */
+    fun getDateLong(): Long? = date?.toEpochSecond(ZoneOffset.UTC)
+
+    /**
+     * Get the value of the date modified in Epoch Seconds
+     */
+    fun getDateModifiedLong(): Long? = dateModified?.toEpochSecond(ZoneOffset.UTC)
+
+    fun getThumbnailModel(sizeX: Int = -1, sizeY: Int = -1): Any? {
+        val url = thumbnailUrl
+        // Remote cover: hand the URL string to Coil's network fetcher. Wrapping it in
+        // LocalArtworkPath would route it through the local-file-only fetcher and fail.
+        if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+            android.util.Log.d("CoverDebug", "getThumbnailModel http url=$url for title=$title")
+            return url
+        }
+        android.util.Log.d("CoverDebug", "getThumbnailModel local/none url=$url localPath=$localPath title=$title")
+        return LocalArtworkPath(url ?: localPath, sizeX, sizeY)
+    }
+}
+
+fun Song.toMediaMetadata() = MediaMetadata(
+    id = song.id,
+    title = song.title,
+    artists = artists.map {
+        MediaMetadata.Artist(
+            id = it.id,
+            name = it.name,
+        )
+    },
+    duration = song.duration,
+    thumbnailUrl = song.thumbnailUrl,
+    trackNumber = song.trackNumber,
+    discNumber = song.discNumber,
+    album = album?.let {
+        MediaMetadata.Album(
+            id = it.id,
+            title = it.title,
+        )
+    } ?: song.albumId?.let { albumId ->
+        MediaMetadata.Album(
+            id = albumId,
+            title = song.albumName.orEmpty(),
+            // no possible local albums somehow
+        )
+    },
+    genre = genre?.map {
+        MediaMetadata.Genre(
+            id = it.id,
+            title = it.title,
+        )
+    },
+    year = song.year,
+    date = song.date,
+    dateModified = song.dateModified,
+    inLibrary = song.inLibrary,
+    liked = song.liked,
+    isLocal = song.isLocal,
+    localPath = song.localPath
+)

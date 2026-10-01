@@ -22,11 +22,11 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.dd3boh.outertune"
+    namespace = "com.nocturne.player"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.apple.music"
+        applicationId = "com.nocturne.player"
         minSdk = 26
         targetSdk = 37
         versionCode = 76
@@ -36,7 +36,7 @@ android {
 
     signingConfigs {
         if (!keystoreProperties.isEmpty) {
-            create("ot_release") {
+            create("nocturne_release") {
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 (keystoreProperties["keyAlias"] as? String)?.let {
                     keyAlias = it
@@ -49,7 +49,7 @@ android {
                 }
             }
         } else {
-            create("ot_release") { }
+            create("nocturne_release") { }
         }
     }
 
@@ -59,7 +59,7 @@ android {
             isShrinkResources = true
             isCrunchPngs = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("ot_release")
+            signingConfig = signingConfigs.getByName("nocturne_release")
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -112,7 +112,7 @@ android {
         variant.outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
-                var outputFileName = "OuterTune-${variant.versionName}-${output.baseName}-${output.versionCode}.apk"
+                var outputFileName = "Nocturne-${variant.versionName}-${output.baseName}-${output.versionCode}.apk"
                 output.outputFileName = outputFileName
             }
     }

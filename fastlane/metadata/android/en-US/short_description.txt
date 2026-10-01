@@ -1,1 +1,1 @@
-Material 3 local Music Player and YouTube Music client
+Nocturne — A Material 3 music player where local audio and streaming sing in harmony.

@@ -8,4 +8,4 @@ Version 0.10.0
 === Bug fixes ===
 • Fixed many crashes and bugs. Please see the full changelog!
 
-Full changelog: https://github.com/OuterTune/OuterTune/releases/tag/v0.10.0
+Full changelog: https://github.com/Nocturne/Nocturne/releases/tag/v0.10.0
