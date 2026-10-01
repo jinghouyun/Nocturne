@@ -13,8 +13,6 @@ import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
@@ -256,12 +254,6 @@ class MainActivity : ComponentActivity() {
 
     /** Unified back handling for all three back sources (navbar key, gesture, dispatcher). */
     private fun handleBackPress() {
-        if (BuildConfig.DEBUG) {
-            // Debug-only breadcrumb: if the user presses back and lands on the
-            // launcher WITHOUT seeing this toast, the back event never reached
-            // the app (system-level interception).
-            Toast.makeText(this, "返回事件已进入App拦截链", Toast.LENGTH_SHORT).show()
-        }
         if (exitDialogShown) {
             finish()
             return
@@ -345,18 +337,6 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-
-        // Debug-only: startup toast proving the installed build & that the back
-        // interception is armed. Lets the user verify they are on the right APK.
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (BuildConfig.DEBUG) {
-                Toast.makeText(
-                    this,
-                    "OuterTune v${BuildConfig.VERSION_NAME} 返回拦截已启用",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }, 900)
 
         setContent {
             Log.v(MAIN_TAG, "RC-1")
