@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -133,6 +134,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavController
 import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowWidthSizeClass
 import com.dd3boh.outertune.constants.AppBarHeight
@@ -159,6 +161,7 @@ import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
+import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
 import com.dd3boh.outertune.ui.menu.MenuState
@@ -225,6 +228,14 @@ class MainActivity : ComponentActivity() {
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
 
+    // Activity-level back-handling bridge. The composition assigns these refs;
+    // the global OnBackPressedCallback below (registered in onCreate, lowest
+    // priority) reads them so no back event can fall through to the system
+    // default (which finishes the task silently).
+    private var navControllerRef: NavController? = null
+    private var playerSheetStateRef: BottomSheetState? = null
+    var exitDialogShown by mutableStateOf(false)
+
     val controllerViewModel: MediaControllerViewModel by viewModels()
 
     // storage permission helpers
@@ -262,6 +273,32 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         activityLauncher = ActivityLauncherHelper(this)
+
+        // Global back-press safety net. Registered first (lowest priority) so
+        // any back event NOT consumed by Compose BackHandlers (search bar while
+        // active, player sheet while expanded, selection modes) lands here and
+        // can never fall through to the system default, which would finish the
+        // task silently and drop the user to the launcher.
+        onBackPressedDispatcher.addCallback(object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (exitDialogShown) {
+                    finish()
+                    return
+                }
+                val nc = navControllerRef
+                if (nc == null) return
+                val sheet = playerSheetStateRef
+                if (sheet != null && !sheet.isCollapsed && !sheet.isDismissed) {
+                    sheet.collapseSoft()
+                    return
+                }
+                if (nc.previousBackStackEntry == null) {
+                    exitDialogShown = true
+                } else if (!nc.navigateUp()) {
+                    exitDialogShown = true
+                }
+            }
+        })
 
         setContent {
             Log.v(MAIN_TAG, "RC-1")
@@ -334,6 +371,7 @@ class MainActivity : ComponentActivity() {
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
 
                 val navController = rememberNavController()
+                navControllerRef = navController
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
 
                 val tabOpenedFromShortcut = remember {
@@ -382,7 +420,10 @@ class MainActivity : ComponentActivity() {
                     // - player sheet expanded/collapsed -> its own BackHandler collapses it first
                     // - non-root nav destination -> pop back to the root (main) page
                     // - root (main) page -> show "exit?" dialog; pressing back again leaves the app
-                    var showExitDialog by remember { mutableStateOf(false) }
+                    // State lives on the Activity (exitDialogShown) so the global
+                    // OnBackPressedCallback can drive it even outside composition.
+                    val showExitDialog = exitDialogShown
+                    val onExitDialogChange: (Boolean) -> Unit = { exitDialogShown = it }
 
                     BackHandler(
                         // Always-on safety net: no route/state may fall through to the
@@ -396,13 +437,13 @@ class MainActivity : ComponentActivity() {
                             !playerBottomSheetState.isCollapsed && !playerBottomSheetState.isDismissed ->
                                 playerBottomSheetState.collapseSoft()
                             // root destination -> ask before exiting
-                            navController.previousBackStackEntry == null -> showExitDialog = true
+                            navController.previousBackStackEntry == null -> onExitDialogChange(true)
                             // any deeper page -> pop back to the root (main) page
                             else -> {
                                 val handled = navController.navigateUp()
                                 // Never leave the app silently: if pop-back fails (unexpected
                                 // nav state), show the exit confirmation instead of finishing.
-                                if (!handled) showExitDialog = true
+                                if (!handled) onExitDialogChange(true)
                             }
                         }
                     }
@@ -416,7 +457,7 @@ class MainActivity : ComponentActivity() {
                         // press reaches our BackHandler(showExitDialog) -> finish(), i.e. the user
                         // can exit by pressing back again while the dialog is up.
                         Dialog(
-                            onDismissRequest = { showExitDialog = false },
+                            onDismissRequest = { onExitDialogChange(false) },
                             properties = DialogProperties(
                                 dismissOnBackPress = false,
                                 dismissOnClickOutside = false,
@@ -449,7 +490,7 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.End
                                     ) {
-                                        TextButton(onClick = { showExitDialog = false }) { Text("取消") }
+                                        TextButton(onClick = { onExitDialogChange(false) }) { Text("取消") }
                                         Spacer(Modifier.width(8.dp))
                                         TextButton(onClick = { finish() }) { Text("退出") }
                                     }
