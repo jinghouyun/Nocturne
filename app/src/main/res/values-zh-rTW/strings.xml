@@ -75,6 +75,12 @@
     <string name="view_artist">瀏覽藝人</string>
     <string name="view_album">瀏覽專輯</string>
     <string name="refetch">更新資料</string>
+    <string name="adjust_lyric_time">調整歌詞時間</string>
+    <string name="earlier">提前</string>
+    <string name="later">延後</string>
+    <string name="lyric_in_sync">已同步</string>
+    <string name="lyric_time_earlier">提前 %1$s 秒</string>
+    <string name="lyric_time_later">延後 %1$s 秒</string>
     <string name="share">分享</string>
     <string name="delete">移除</string>
     <string name="remove_from_history">從記錄中移除</string>

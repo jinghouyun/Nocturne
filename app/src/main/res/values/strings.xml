@@ -102,6 +102,12 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="view_artist">View artist</string>
     <string name="view_album">View album</string>
     <string name="refetch">Refetch</string>
+    <string name="adjust_lyric_time">Adjust timing</string>
+    <string name="earlier">Earlier</string>
+    <string name="later">Later</string>
+    <string name="lyric_in_sync">In sync</string>
+    <string name="lyric_time_earlier">Earlier %1$s s</string>
+    <string name="lyric_time_later">Later %1$s s</string>
     <string name="share">Share</string>
     <string name="vocal_separation">人声分离</string>
     <string name="delete">Delete</string>
