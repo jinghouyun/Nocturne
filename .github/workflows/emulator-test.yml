@@ -34,7 +34,7 @@ jobs:
           egrep -c '(vmx|svm)' /proc/cpuinfo || true
 
       - name: Make gradlew executable
-        run: chmod +x ./gradlew
+        run: chmod +x ./gradlew scripts/ci-emulator-test.sh
 
       - name: Install emulator native dependencies
         # The emulator's qemu binary is dynamically linked against libpulse and
@@ -58,23 +58,10 @@ jobs:
           ram-size: 2048
           cores: 2
           emulator-options: -no-window -no-snapshot-save -no-snapshot-load -no-audio -no-boot-anim -no-metrics -gpu swiftshader_indirect
-          # Always collect screenshots/logcat even if the instrumentation fails,
-          # then propagate the real exit status.
-          script: |
-            PKG=com.nocturne.player.debug
-            mkdir -p artifacts/screenshots
-            TEST_FAILED=0
-
-            ./gradlew connectedCoreDebugAndroidTest --no-daemon || TEST_FAILED=1
-
-            adb root || true
-            adb wait-for-device
-            sleep 2
-            adb pull /sdcard/Android/data/$PKG/files/test_screenshots artifacts/screenshots || true
-            adb logcat -d > artifacts/logcat.txt || true
-
-            echo "TEST_FAILED=$TEST_FAILED"
-            if [ "$TEST_FAILED" = "1" ]; then exit 1; fi
+          # Single command: the action runs each script line in a separate
+          # sh -c (dropping vars/flags), so all logic lives in the script file,
+          # which always collects artifacts and returns the real exit code.
+          script: bash scripts/ci-emulator-test.sh
 
       - name: Upload screenshots & logs
         if: always()

@@ -131,14 +131,18 @@ fun SearchBar(
         }
     }
 
-    val animationProgress: Float by animateFloatAsState(
+    // Clamp to [0,1]: the LowBouncy spring can overshoot past 0 while the
+    // search bar is collapsing, yielding a slightly negative progress on some
+    // frames (notably under tests' discrete frame clock). Multiplying insets
+    // by a negative progress produces negative PaddingValues and crashes.
+    val animationProgress: Float = animateFloatAsState(
         targetValue = if (active) 1f else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioLowBouncy,
             stiffness = Spring.StiffnessMediumLow,
         ),
         label = ""
-    )
+    ).value.coerceIn(0f, 1f)
 
     val defaultInputFieldShape = SearchBarDefaults.inputFieldShape
     val defaultFullScreenShape = SearchBarDefaults.fullScreenShape
