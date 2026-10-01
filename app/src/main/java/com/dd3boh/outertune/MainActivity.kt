@@ -137,6 +137,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavController
 import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowWidthSizeClass
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DarkMode
@@ -281,6 +282,16 @@ class MainActivity : ComponentActivity() {
         // task silently and drop the user to the launcher.
         onBackPressedDispatcher.addCallback(object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (BuildConfig.DEBUG) {
+                    // Debug-only breadcrumb: if the user presses back and lands on the
+                    // launcher WITHOUT seeing this toast, the back event never reached
+                    // the app (system-level interception).
+                    Toast.makeText(
+                        this@MainActivity,
+                        "返回事件已进入App拦截链",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
                 if (exitDialogShown) {
                     finish()
                     return
