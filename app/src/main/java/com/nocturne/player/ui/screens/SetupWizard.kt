@@ -313,7 +313,8 @@ fun SetupWizard(
                                 onClick = {
                                     oobeStatus = OOBE_VERSION
                                     navController.navigateUp()
-                                }
+                                },
+                                modifier = Modifier.testTag("oobe_skip")
                             ) {
                                 Text(
                                     text = stringResource(R.string.action_skip),

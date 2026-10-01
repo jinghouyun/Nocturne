@@ -255,6 +255,12 @@ dependencies {
     // modules
     implementation(project(":material-color-utilities"))
 
+    // instrumentation / UI tests (run on an emulator via connectedCoreDebugAndroidTest)
+    androidTestImplementation(libs.test.ext.junit)
+    androidTestImplementation(libs.compose.ui.test)
+    androidTestImplementation(libs.test.uiautomator)
+    debugImplementation(libs.compose.ui.test.manifest)
+
 }
 
 afterEvaluate {

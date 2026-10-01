@@ -15,6 +15,8 @@ hilt = "2.60.1"
 ksp = "2.3.4"
 okhttp = "4.12.0"
 rhino = "1.7.15"
+testExtJunit = "1.2.1"
+uiautomator = "2.3.0"
 
 [libraries]
 annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
@@ -73,6 +75,12 @@ aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 
 #junit = { group = "junit", name = "junit", version = "4.13.2" }
+
+# instrumentation / UI tests
+test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "testExtJunit" }
+test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+compose-ui-test = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "compose" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "compose" }
 
 [plugins]
 aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutLibraries" }

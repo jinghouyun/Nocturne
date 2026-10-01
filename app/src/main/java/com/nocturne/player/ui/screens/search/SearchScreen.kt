@@ -37,6 +37,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -137,7 +138,10 @@ fun SearchBarContainer(
                     .weight(1f)
                     .padding(start = 12.dp)
             )
-            IconButton(onClick = { onSearchActiveChange(true) }) {
+            IconButton(
+                onClick = { onSearchActiveChange(true) },
+                modifier = Modifier.testTag("top_search_icon")
+            ) {
                 Icon(Icons.Rounded.Search, contentDescription = null)
             }
         }
@@ -168,6 +172,7 @@ fun SearchBarContainer(
                             else -> navController.navigateUp()
                         }
                     },
+                    modifier = Modifier.testTag("search_back_arrow"),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
